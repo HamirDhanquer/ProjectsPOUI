@@ -7,6 +7,7 @@
 /bazel-out
 
 # Node
+/blog/node_modules
 E:/projects/ProjectsPOUI/blog/node_modules
 npm-debug.log
 yarn-error.log
