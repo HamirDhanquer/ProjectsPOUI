@@ -1,0 +1,14 @@
+<div class="po-row" >
+    @for (item of posts; track item.id) {
+
+        <po-widget class="po-md-4 po-mb-2" p-title="{{ item.title }}" (p-click)="verPost(item.id)">
+            <p>{{ item.title }}</p>
+            <p>{{ item.except }}</p>
+            <hr>
+            <po-info
+                p-label="Autor"
+                p-value="{{ item.author }}"
+            ></po-info>
+        </po-widget>
+    }
+</div>
