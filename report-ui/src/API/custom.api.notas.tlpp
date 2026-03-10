@@ -34,6 +34,7 @@ User Function getExportExcelTables()
 Return 
 
 
+
 Static Function getExportExcel(oRest as Object) as json 
     Local lHasNext := .T. as logical
     Local jResponse := JsonObject():New() as json 
@@ -51,7 +52,7 @@ Static Function getExportExcel(oRest as Object) as json
     Local jBody := JsonObject():New() as json
     Local jItems
     Local aOptions := {} as Array
-    Local nPosOption := 0 as Array
+    Local nPosOption := 0 as Integer
 
     jBody:FromJson(decodeUTF8(oRest:getBodyRequest(), 'cp1252'))
     
@@ -100,14 +101,18 @@ Static Function getExportExcel(oRest as Object) as json
         Next nItems
         lHasNext := jItems['hasNext']
         nPage++
+        
+        Loop
     EndDo
 
-    jResponse['fileName'] := "Notas_" + Dtoc(Date()) + ".xlsx"
+    jResponse['fileName'] :=  jQueryRequestParams['nameArq'] + ".xlsx" // "Notas_" + Dtoc(Date()) + ".xlsx"
     jResponse['directory'] := "\spool\" + jResponse['fileName']
 
     oFWMSExcel:Activate()
     oFWMSExcel:getXmlFile(jResponse['directory'])
 Return jResponse
+
+
 
 /*/{Protheus.doc} listarNotas
     (long_description)

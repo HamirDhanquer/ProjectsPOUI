@@ -48,10 +48,12 @@ export class AppComponent {
     { property: 'f2_valmerc', type: 'number' }
   ];
 
+  page: number = 1;
+
   loadingExport: boolean = false;
   titleExport: string = 'Relatório de Vendas';
   actionsExport: Array<PoMenuItem> = [
-    { label: 'Exportar para Excel' },
+    { label: 'Exportar para Excel', action: this.exportarExcel.bind(this) },
     { label: 'Exportar para PDF' }
   ];
 
@@ -104,7 +106,7 @@ export class AppComponent {
 
   exportarExcel() {
     // Lógica para exportar para Excel
-    const API_EXCEL = "";
+    const API_EXCEL = "http://10.0.0.3:8181/rest/api/v1/exportarExcel";
     this.titleExport = "Consulta_Notas_Fiscais";
 
     const username = this.DEFAULT_USER;
@@ -116,10 +118,12 @@ export class AppComponent {
 
     //Declarar os parâmetros da consulta
     const params = new HttpParams()
-      .set('FromQry', this.DEFAULT_QUERY)
-      .set('tables', this.DEFAULT_TABLES)
+      .set('page', this.page)
+      .set('pageSize', 10)
       .set('fields', this.DEFAULT_FIELDS)
-      .set('where', this.buildWhereClause())
+      .set('filter', this.buildWhereClause())
+      .set('order', '')
+      .set('nameArq', this.titleExport)
 
     this.loadingExport = true;
     this.http.post(API_EXCEL, body, { headers: { 'Authorization': authHeader }, params: params })
