@@ -1,0 +1,171 @@
+#include 'Totvs.ch'
+#include 'tlpp-core.th'
+
+/*/{Protheus.doc} getExportExcelTables
+(long_description)
+@type user function
+@author user
+@since 20/02/2026
+@version 1.0
+/*/
+@post('/api/v1/exportarExcel')
+User Function getExportExcelTables()
+    Local jResponse as json 
+    Local oFile as Object
+    Local cFileBase64 as Character
+    Local jDataArq as json
+
+    jResponse := JsonObject():New()
+    jDataArq := getExportExcel(oRest)
+
+    oFile := FWFileReader():New(jDataArq['directory'])
+    if oFile:Open()
+
+        cFileBase64 := Encode64(oFile:FullRead())
+        jResponse['file'] := cFileBase64
+        jResponse['fileName'] := jDataArq['fileName']
+        oRest:setResponse(jResponse)
+    else
+        setRestFault(400, "Não foi possível ler o arquivo.")
+    endif
+
+    FErase(jDataArq["directory"])
+    oFile:Close()
+Return 
+
+
+Static Function getExportExcel(oRest as Object) as json 
+    Local lHasNext := .T. as logical
+    Local jResponse := JsonObject():New() as json 
+    Local oFWMSExcel := NIL as Object
+    Local cNameTable  := "" as Character
+    Local cWorkSheet  := "" as Character
+    Local jQueryRequestParams := oRest:getQueryRequest() as json
+    Local nFields := 0 as Integer
+    Local jTypeField := JsonObject():New() as json
+    Local cTitleField := "" as Character
+    Local nItems := 0 as Integer
+    Local aValues := {} as Array
+    Local xValue
+    Local nPage := 1 as Integer
+    Local jBody := JsonObject():New() as json
+    Local jItems
+    Local aOptions := {} as Array
+    Local nPosOption := 0 as Array
+
+    jBody:FromJson(decodeUTF8(oRest:getBodyRequest(), 'cp1252'))
+    
+    // Tipos aceitos pelo Excel
+    jTypeField['string'] := 1
+    jTypeField['number'] := 2
+    jTypeField['date'] := 2
+
+    While lHasNext
+        jItems = listarNotas(oRest:getQueryRequest())
+
+        if oFWMSExcel == NIL
+            oFWMSExcel := FWMSExcel():New()
+            cNameTable := FWSx2Util():getx2Name('SF2')
+            cWorkSheet := cNameTable +" - "+ Dtoc(Date())
+            oFWMSExcel:addWorkSheet(cWorkSheet)
+            oFWMSExcel:addTable(cWorkSheet, cNameTable, .F.)
+
+            for nFields := 1 to Len(jBody['struct'])
+                cTitleField := Alltrim(Upper(jBody["struct"][nFields]["property"]))
+                oFWMSExcel:addColumn(cWorkSheet, cNameTable, cTitleField, 1,jTypeField[jBody["struct"][nFields]["type"]],/* Total*/)                
+            Next nFields
+
+        endif
+
+        for nItems := 1 to Len(jItems['items'])
+            aValues := {}
+            for nFields := 1 to Len(jBody['struct'])
+                xValue := jItems['items'][nItems][lower(jBody["struct"][nFields]["property"])]
+                aOptions := getOptions(getSX3Cache(Upper(jBody["struct"][nFields]["property"]), 'X3_CBOX'))
+
+                if jBody["struct"][nFields]["type"] == "date" .And. !Empty(xValue)
+                    
+                    Aadd(aValues, Stod(SubStr(xValue, 1, 4) + PadL(StrTran(SubStr(xValue, 6, 2), '-', ''), 2, '0') + PadL(StrTran(SubStr(xValue, 8, 3), '-', ''), 2, '0')))
+                else
+                    if len(aOptions) > 0 .And. (nPosOption := aScan(aOptions, {|x| x['value'] == xValue})) > 0
+                        
+                        Aadd(aValues, aOptions[nPosOption]['label'])
+                    else
+                        Aadd(aValues, xValue)
+                    endif
+                endif
+            Next nFields
+
+            oFWMSExcel:addRow(cWorkSheet, cNameTable, aValues)
+        Next nItems
+        lHasNext := jItems['hasNext']
+        nPage++
+    EndDo
+
+    jResponse['fileName'] := "Notas_" + Dtoc(Date()) + ".xlsx"
+    jResponse['directory'] := "\spool\" + jResponse['fileName']
+
+    oFWMSExcel:Activate()
+    oFWMSExcel:getXmlFile(jResponse['directory'])
+Return jResponse
+
+/*/{Protheus.doc} listarNotas
+    (long_description)
+    @type  Static Function
+    @author user
+    @since 02/03/2026
+    @version 1.0
+/*/
+Static Function listarNotas(jQueryRequestParams as json)
+    Local jResponse   as json
+    Local cQuery      as Character
+    Local cQueryWhere as Character
+    Local nPage       as Integer
+    Local nPageSize   as Integer
+    Local oQuery      as Object
+    Local cOrder      as Character
+
+    nPage := iif(!Empty(jQueryRequestParams['page']), Val(jQueryRequestParams['page']), nPage := 1)
+    nPageSize := iif(!Empty(jQueryRequestParams['pageSize']), Val(jQueryRequestParams['pageSize']), nPageSize := 1)
+
+    // VERIFICAR SE RECEBEU OS CAMPOS PARA ORDENAÇÃO 
+    if (!Empty(jQueryRequestParams['order']))
+        cOrder := jQueryRequestParams['order']
+    endif
+
+    cQuery := " SELECT #QueryFields# "
+	cQuery += " FROM " + retSqlName('SF2') + " SF2"
+	cQuery += " INNER JOIN " + retSqlName('SA1') + " SA1 "
+	cQuery += " ON SF2.F2_CLIENTE = SA1.A1_COD "
+	cQuery += " AND SF2.F2_LOJA = SA1.A1_LOJA "
+	cQuery += " WHERE #QueryWhere#"
+
+    if jQueryRequestParams:hasProperty('filter') .And. !Empty(jQueryRequestParams['filter'])
+        cQueryWhere := jQueryRequestParams['filter']
+    else
+        cQueryWhere := " SF2.D_E_L_E_T_ = ' ' AND SA1.D_E_L_E_T_ = ' ' "    
+    endif
+
+    oQuery := FWAdapterBaseV2():New("GET",.T.)
+    oQuery:addMapFields('a1_cod', 'A1_COD', .T.,.T.)
+	oQuery:addMapFields('a1_nome', 'A1_NOME', .T.,.T.)
+	oQuery:addMapFields('f2_emissao', 'F2_EMISSAO', .T.,.T.)
+	oQuery:addMapFields('f2_doc', 'F2_DOC', .T.,.T.)
+	oQuery:addMapFields('f2_valmerc', 'F2_VALMERC', .T.,.T.)
+
+    oQuery:setQuery(cQuery)
+    oQuery:setWhere(cQueryWhere)
+    oQuery:setPageSize(nPageSize)
+    oQuery:setPage(nPage)
+    oQuery:setOrder(cOrder)
+
+    if oQuery:execute()
+        oQuery:fillGetResponse()
+
+        jResponse := JsonObject():New()
+        jResponse:FromJson(oQuery:getJSONResponse())
+    else 
+        jResponse := JsonObject():New()
+        jResponse['message'] := oQuery:getMessage()
+    endif
+Return jResponse

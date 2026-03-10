@@ -1,0 +1,41 @@
+<div class="po-wrapper">
+  <po-toolbar p-title="Relatorios de Notas Fiscais"></po-toolbar>
+
+  <po-menu [p-menus]="menus"></po-menu>
+
+  <po-page-default p-title="Consultas de Notas Fiscais">
+
+    <div class="po-lg-12 po-pb-5">
+      <po-container>
+
+        <div class="po-lg-3 po-md-12 po-sm-12 po-p-2">
+          <po-input p-label="Cliente Inicial" [(ngModel)]="clienteDe">
+          </po-input>
+        </div>
+        <div class="po-lg-3 po-md-12 po-sm-12 po-p-2">
+          <po-input p-label="Cliente Final" [(ngModel)]="clienteAte">
+          </po-input>
+        </div>
+
+        <div class="po-lg-3 po-sm-12 po-p-2">
+          <po-datepicker p-label="Data Inicial" [(ngModel)]="dtEmissaoDe"></po-datepicker>
+        </div>
+        <div class="po-lg-3 po-sm-12 po-p-2">
+          <po-datepicker p-label="Data Final" [(ngModel)]="dtEmissaoAte"></po-datepicker>
+        </div>
+
+        <div class="po-row po-pt-2">
+          <div class="po-lg-12 po-text-right">
+            <po-button p-label="Consultar" p-kind="primary" (p-click)="pesquisar(1)"></po-button>
+            <po-button p-label="Limpar" class="po-ml-1" p-kind="secondary" (p-click)="reset()"></po-button>
+            <po-dropdown p-label="Outras Ações" class="po-ml-1" [p-actions]="actionsExport"></po-dropdown>
+          </div>
+        </div>
+      </po-container>
+    </div>
+
+    <po-table [p-columns]="columns" [p-items]="items" [p-loading]="loading">
+    </po-table>
+
+  </po-page-default>
+</div>
